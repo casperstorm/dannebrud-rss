@@ -1,0 +1,76 @@
+name: Poll RSS → webhook
+
+on:
+  schedule:
+    # Every 15 minutes (UTC). A waking-hours gate skips most overnight runs.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rss-poll
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Waking hours (Europe/Copenhagen 07–22)
+        id: hours
+        run: |
+          HOUR=$(TZ=Europe/Copenhagen date +%H)
+          echo "copenhagen_hour=$HOUR" >> "$GITHUB_OUTPUT"
+          if [ "$HOUR" -lt 7 ] || [ "$HOUR" -ge 22 ]; then
+            echo "Outside waking hours (07–22 Europe/Copenhagen) — exiting early."
+            echo "awake=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "awake=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.hours.outputs.awake == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: steps.hours.outputs.awake == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.hours.outputs.awake == 'true' || github.event_name == 'workflow_dispatch'
+        run: npm ci
+
+      - name: Poll feeds
+        if: steps.hours.outputs.awake == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          WEBHOOK_KEY: ${{ secrets.WEBHOOK_KEY }}
+        run: npm run poll
+
+      - name: Commit seen.json
+        if: steps.hours.outputs.awake == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          if git diff --quiet -- seen.json; then
+            echo "seen.json unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add seen.json
+          git commit -m "chore: update seen.json [skip ci]"
+          # Retry push once if another run raced ahead
+          git push || (git pull --rebase origin "${GITHUB_REF_NAME}" && git push)
+
+      - name: Upload seen artifact
+        if: (steps.hours.outputs.awake == 'true' || github.event_name == 'workflow_dispatch') && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seen-json
+          path: seen.json
+          retention-days: 30
+          if-no-files-found: ignore
