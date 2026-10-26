@@ -6,7 +6,7 @@
  * Env:
  *   WEBHOOK_URL  — destination URL (required unless DRY_RUN=1)
  *   WEBHOOK_KEY  — panel "key" or full "header" value; normalized to Authorization (required unless DRY_RUN=1)
- *   WEBHOOK_TIMEOUT_MS — max ms to wait for webhook HTTP ACK (default: 45000).
+ *   WEBHOOK_TIMEOUT_MS — max ms to wait for webhook HTTP status (default: 15000).
  *                        On timeout after the request is sent, delivery is assumed
  *                        and seen.json is still persisted (soft success).
  *   DRY_RUN      — if set, print matches and skip POST / seen.json write
@@ -15,8 +15,11 @@
  *   MAX_AGE_HOURS — skip items older than this when first seen (default: 48)
  */
 
+import http from "node:http";
+import https from "node:https";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { URL } from "node:url";
 import Parser from "rss-parser";
 
 const FEEDS_PATH = resolve(process.env.FEEDS_PATH || "feeds.json");
@@ -24,7 +27,7 @@ const SEEN_PATH = resolve(process.env.SEEN_PATH || "seen.json");
 const MAX_AGE_MS = (Number(process.env.MAX_AGE_HOURS) || 48) * 60 * 60 * 1000;
 const WEBHOOK_TIMEOUT_MS = (() => {
   const n = Number(process.env.WEBHOOK_TIMEOUT_MS);
-  return Number.isFinite(n) && n > 0 ? n : 45000;
+  return Number.isFinite(n) && n > 0 ? n : 15000;
 })();
 const DRY_RUN = Boolean(process.env.DRY_RUN);
 const MAX_SEEN = 5000;
@@ -213,15 +216,90 @@ function isAbortOrTimeout(err) {
   return name === "TimeoutError" || name === "AbortError";
 }
 
-/** Drop response body so a held-open webhook connection cannot keep the process alive. */
-async function discardResponseBody(res) {
-  try {
-    if (res.body) {
-      await res.body.cancel();
+/**
+ * POST JSON and return as soon as the status line/headers are known.
+ *
+ * Critical: do NOT await/read the response body. Grok Bot often sends HTTP 200
+ * quickly then holds the TCP connection open while the routine finishes. Undici
+ * fetch + awaiting body.cancel() still blocks until the server closes — which
+ * kept Actions hung past WEBHOOK_TIMEOUT_MS and skipped committing seen.json.
+ *
+ * Native http(s) lets us destroy the socket immediately after status.
+ */
+function postWebhookOnce(urlString, authorization, body, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let hardTimer;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      if (hardTimer) clearTimeout(hardTimer);
+      fn(value);
+    };
+
+    let parsed;
+    try {
+      parsed = new URL(urlString);
+    } catch (err) {
+      reject(err);
+      return;
     }
-  } catch {
-    // Ignore cancel races / already-closed bodies.
-  }
+
+    const lib = parsed.protocol === "https:" ? https : http;
+    const payload = Buffer.from(body, "utf8");
+
+    const req = lib.request(
+      {
+        protocol: parsed.protocol,
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === "https:" ? 443 : 80),
+        path: `${parsed.pathname}${parsed.search}`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authorization,
+          "User-Agent": "dannebrud-rss/1.0",
+          "Content-Length": payload.byteLength,
+          Connection: "close",
+        },
+        // Socket inactivity while waiting for headers.
+        timeout: timeoutMs,
+      },
+      (res) => {
+        const status = res.statusCode || 0;
+        // Detach immediately — never read or await the body / held connection.
+        res.destroy();
+        req.destroy();
+        finish(resolve, {
+          status,
+          ok: status >= 200 && status < 300,
+        });
+      },
+    );
+
+    hardTimer = setTimeout(() => {
+      req.destroy();
+      const err = new Error(`Webhook hard deadline after ${timeoutMs}ms`);
+      err.name = "TimeoutError";
+      finish(reject, err);
+    }, timeoutMs);
+
+    req.on("timeout", () => {
+      req.destroy();
+      const err = new Error(`Webhook headers timed out after ${timeoutMs}ms`);
+      err.name = "TimeoutError";
+      finish(reject, err);
+    });
+
+    req.on("error", (err) => {
+      // Destroy after a successful status still emits errors; ignore once settled.
+      if (settled) return;
+      finish(reject, err);
+    });
+
+    req.write(payload);
+    req.end();
+  });
 }
 
 async function postWebhook(items) {
@@ -235,22 +313,15 @@ async function postWebhook(items) {
   }
 
   const authorization = normalizeAuthorization(key);
+  const body = JSON.stringify({ items });
 
   let res;
   try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-        "User-Agent": "dannebrud-rss/1.0",
-      },
-      body: JSON.stringify({ items }),
-      signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
-    });
+    // Hard deadline inside postWebhookOnce (connect + headers only). Body is never awaited.
+    res = await postWebhookOnce(url, authorization, body, WEBHOOK_TIMEOUT_MS);
   } catch (err) {
-    // Request was sent; webhook often processes before ACKing. Treat ACK timeout as
-    // soft success so seen.json is still saved and we do not re-POST forever.
+    // Request was likely sent; webhook often processes before finishing the HTTP
+    // response. Treat ACK/hard timeout as soft success so seen.json is saved.
     if (isAbortOrTimeout(err)) {
       console.warn(
         `Webhook ACK timed out after ${WEBHOOK_TIMEOUT_MS}ms — assuming delivery; persisting seen.json`,
@@ -262,8 +333,6 @@ async function postWebhook(items) {
     process.exitCode = 1;
     return false;
   }
-
-  await discardResponseBody(res);
 
   if (!res.ok) {
     // Do not log response body (may echo secrets or tokens).

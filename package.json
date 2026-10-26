@@ -9,7 +9,8 @@
   },
   "scripts": {
     "poll": "node poll.mjs",
-    "test:dry": "DRY_RUN=1 node poll.mjs"
+    "test:dry": "DRY_RUN=1 node poll.mjs",
+    "test:webhook-detach": "node scripts/verify-webhook-detach.mjs"
   },
   "dependencies": {
     "rss-parser": "^3.13.0"
