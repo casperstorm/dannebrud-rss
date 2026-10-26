@@ -28,6 +28,8 @@ Never commit these values. The workflow does not print them.
 
 The Grok Bot routine may keep the HTTP connection open while it finishes reviewing matches. The poller waits only for the HTTP **status** (up to `WEBHOOK_TIMEOUT_MS`, default **15s**), then **destroys the socket** without reading the body — so a held-open 200 cannot keep the Actions job alive. On ACK/hard timeout it assumes delivery and still persists `seen.json`. Real HTTP **4xx/5xx** still fail the step. Response bodies and secrets are never logged.
 
+After main work finishes, the process always **`process.exit`s** so leftover TLS/rss-parser keep-alive handles cannot hang the Actions step. Each feed fetch also has a hard deadline (`FEED_TIMEOUT_MS`, default **25s**).
+
 ## What gets posted
 
 One JSON POST per run when there is at least one new match:
