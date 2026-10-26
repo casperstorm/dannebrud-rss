@@ -9,6 +9,7 @@
  *   WEBHOOK_TIMEOUT_MS — max ms to wait for webhook HTTP status (default: 15000).
  *                        On timeout after the request is sent, delivery is assumed
  *                        and seen.json is still persisted (soft success).
+ *   FEED_TIMEOUT_MS — hard deadline per RSS fetch (default: 25000).
  *   DRY_RUN      — if set, print matches and skip POST / seen.json write
  *   SEEN_PATH    — path to seen.json (default: ./seen.json)
  *   FEEDS_PATH   — path to feeds.json (default: ./feeds.json)
@@ -28,6 +29,11 @@ const MAX_AGE_MS = (Number(process.env.MAX_AGE_HOURS) || 48) * 60 * 60 * 1000;
 const WEBHOOK_TIMEOUT_MS = (() => {
   const n = Number(process.env.WEBHOOK_TIMEOUT_MS);
   return Number.isFinite(n) && n > 0 ? n : 15000;
+})();
+/** Hard deadline per feed fetch (rss-parser timeout alone can leave sockets hanging). */
+const FEED_TIMEOUT_MS = (() => {
+  const n = Number(process.env.FEED_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : 25000;
 })();
 const DRY_RUN = Boolean(process.env.DRY_RUN);
 const MAX_SEEN = 5000;
@@ -165,9 +171,24 @@ function summarize(item) {
   return text.length > 500 ? `${text.slice(0, 497)}...` : text;
 }
 
+function feedDeadline(ms) {
+  return new Promise((_, reject) => {
+    const t = setTimeout(() => {
+      const err = new Error(`Feed hard deadline after ${ms}ms`);
+      err.name = "TimeoutError";
+      reject(err);
+    }, ms);
+    // Unref so a raced-out timer alone cannot keep the process alive if exit fails.
+    if (typeof t.unref === "function") t.unref();
+  });
+}
+
 async function fetchFeed(feed) {
   try {
-    const parsed = await parser.parseURL(feed.url);
+    const parsed = await Promise.race([
+      parser.parseURL(feed.url),
+      feedDeadline(FEED_TIMEOUT_MS),
+    ]);
     return { feed, items: parsed.items || [], error: null };
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
@@ -421,7 +442,18 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err && err.message ? err.message : err);
-  process.exitCode = 1;
-});
+/**
+ * Always terminate after main work. rss-parser (and destroyed TLS sockets) can
+ * leave keep-alive / handle refs that keep the event loop alive — which hung
+ * GitHub Actions on "Poll feeds" so "Commit seen.json" never ran.
+ */
+function exitAfterMain() {
+  process.exit(process.exitCode || 0);
+}
+
+main()
+  .catch((err) => {
+    console.error(err && err.message ? err.message : err);
+    process.exitCode = 1;
+  })
+  .finally(exitAfterMain);
