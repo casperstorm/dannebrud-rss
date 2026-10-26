@@ -6,6 +6,9 @@
  * Env:
  *   WEBHOOK_URL  — destination URL (required unless DRY_RUN=1)
  *   WEBHOOK_KEY  — panel "key" or full "header" value; normalized to Authorization (required unless DRY_RUN=1)
+ *   WEBHOOK_TIMEOUT_MS — max ms to wait for webhook HTTP ACK (default: 45000).
+ *                        On timeout after the request is sent, delivery is assumed
+ *                        and seen.json is still persisted (soft success).
  *   DRY_RUN      — if set, print matches and skip POST / seen.json write
  *   SEEN_PATH    — path to seen.json (default: ./seen.json)
  *   FEEDS_PATH   — path to feeds.json (default: ./feeds.json)
@@ -19,6 +22,10 @@ import Parser from "rss-parser";
 const FEEDS_PATH = resolve(process.env.FEEDS_PATH || "feeds.json");
 const SEEN_PATH = resolve(process.env.SEEN_PATH || "seen.json");
 const MAX_AGE_MS = (Number(process.env.MAX_AGE_HOURS) || 48) * 60 * 60 * 1000;
+const WEBHOOK_TIMEOUT_MS = (() => {
+  const n = Number(process.env.WEBHOOK_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : 45000;
+})();
 const DRY_RUN = Boolean(process.env.DRY_RUN);
 const MAX_SEEN = 5000;
 
@@ -201,6 +208,22 @@ function normalizeAuthorization(raw) {
   return `Bearer ${value}`;
 }
 
+function isAbortOrTimeout(err) {
+  const name = err && err.name;
+  return name === "TimeoutError" || name === "AbortError";
+}
+
+/** Drop response body so a held-open webhook connection cannot keep the process alive. */
+async function discardResponseBody(res) {
+  try {
+    if (res.body) {
+      await res.body.cancel();
+    }
+  } catch {
+    // Ignore cancel races / already-closed bodies.
+  }
+}
+
 async function postWebhook(items) {
   const url = process.env.WEBHOOK_URL;
   const key = process.env.WEBHOOK_KEY;
@@ -213,15 +236,34 @@ async function postWebhook(items) {
 
   const authorization = normalizeAuthorization(key);
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: authorization,
-      "User-Agent": "dannebrud-rss/1.0",
-    },
-    body: JSON.stringify({ items }),
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+        "User-Agent": "dannebrud-rss/1.0",
+      },
+      body: JSON.stringify({ items }),
+      signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+    });
+  } catch (err) {
+    // Request was sent; webhook often processes before ACKing. Treat ACK timeout as
+    // soft success so seen.json is still saved and we do not re-POST forever.
+    if (isAbortOrTimeout(err)) {
+      console.warn(
+        `Webhook ACK timed out after ${WEBHOOK_TIMEOUT_MS}ms — assuming delivery; persisting seen.json`,
+      );
+      return true;
+    }
+    const message = err && err.message ? err.message : String(err);
+    console.error(`Webhook POST failed: ${message}`);
+    process.exitCode = 1;
+    return false;
+  }
+
+  await discardResponseBody(res);
 
   if (!res.ok) {
     // Do not log response body (may echo secrets or tokens).

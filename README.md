@@ -24,6 +24,10 @@ Never commit these values. The workflow does not print them.
 3. **Actions** → **Poll RSS → webhook** → **Run workflow** (manual test), or wait for the `*/15` cron.
 4. Runs outside **07–22 Europe/Copenhagen** exit early on schedule; **workflow_dispatch** always runs.
 
+## Webhook timing
+
+The Grok Bot routine may keep the HTTP connection open while it finishes reviewing matches. The poller only waits for an HTTP ACK up to `WEBHOOK_TIMEOUT_MS` (default **45s**), then assumes delivery and persists `seen.json` so the Actions job finishes quickly and the same items are not re-POSTed. Real HTTP **4xx/5xx** still fail the step. Response bodies are never logged.
+
 ## What gets posted
 
 One JSON POST per run when there is at least one new match:
