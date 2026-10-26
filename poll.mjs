@@ -47,7 +47,6 @@ const KEYWORDS = [
   "data breach",
   "databreach",
   "ddos",
-  "dDoS",
   "sikkerhedshændelse",
   "sikkerhedshaendelse",
   "sikkerhedsbrud",
