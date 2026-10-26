@@ -1,0 +1,46 @@
+[
+  {
+    "name": "DR Seneste nyt",
+    "url": "https://www.dr.dk/nyheder/service/feeds/senestenyt"
+  },
+  {
+    "name": "DR Indland",
+    "url": "https://www.dr.dk/nyheder/service/feeds/indland"
+  },
+  {
+    "name": "Computerworld",
+    "url": "https://www.computerworld.dk/rss/all"
+  },
+  {
+    "name": "Version2",
+    "url": "https://www.version2.dk/rss"
+  },
+  {
+    "name": "Ingeniøren",
+    "url": "https://ing.dk/rss"
+  },
+  {
+    "name": "Ritzau",
+    "url": "https://via.ritzau.dk/rss/releases/latest"
+  },
+  {
+    "name": "Ekstra Bladet",
+    "url": "https://ekstrabladet.dk/rssfeed/nyheder/"
+  },
+  {
+    "name": "Berlingske",
+    "url": "https://www.berlingske.dk/content/rss"
+  },
+  {
+    "name": "TV2 Nyheder",
+    "url": "https://feeds.services.tv2.dk/api/feeds/nyheder/rss"
+  },
+  {
+    "name": "SamSik",
+    "url": "https://samsik.dk/feed/"
+  },
+  {
+    "name": "CERT.dk",
+    "url": "https://www.cert.dk/news/rss"
+  }
+]
