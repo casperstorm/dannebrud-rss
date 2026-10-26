@@ -12,8 +12,8 @@ In the repo: **Settings → Secrets and variables → Actions** → add:
 
 | Name | Value |
 | --- | --- |
-| `WEBHOOK_URL` | Webhook URL from the Grok Bot routine **“Dannebrud RSS webhook”** panel |
-| `WEBHOOK_KEY` | Auth key from the same panel (sent as the HTTP `Authorization` header value as-is — include a `Bearer ` prefix in the secret if the bot expects one) |
+| `WEBHOOK_URL` | Panel **“POST to”** URL from the Grok Bot routine **“Dannebrud RSS webhook”** panel |
+| `WEBHOOK_KEY` | Panel **“key”** (preferred), or the full **“header”** value — both work. A bare token is sent as `Bearer …`; a value that already starts with `Bearer ` / `Basic `, or a full `Authorization: …` line, is normalized automatically. |
 
 Never commit these values. The workflow does not print them.
 

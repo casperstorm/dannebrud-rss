@@ -5,7 +5,7 @@
  *
  * Env:
  *   WEBHOOK_URL  — destination URL (required unless DRY_RUN=1)
- *   WEBHOOK_KEY  — value sent as the Authorization header (required unless DRY_RUN=1)
+ *   WEBHOOK_KEY  — panel "key" or full "header" value; normalized to Authorization (required unless DRY_RUN=1)
  *   DRY_RUN      — if set, print matches and skip POST / seen.json write
  *   SEEN_PATH    — path to seen.json (default: ./seen.json)
  *   FEEDS_PATH   — path to feeds.json (default: ./feeds.json)
@@ -187,6 +187,20 @@ function toMatch(feed, item) {
   };
 }
 
+/**
+ * Normalize WEBHOOK_KEY into an Authorization header value.
+ * Accepts a bare panel key, "Bearer …" / "Basic …", or a full
+ * "Authorization: …" line (as copied from the routine panel header field).
+ */
+function normalizeAuthorization(raw) {
+  let value = String(raw ?? "").trim();
+  value = value.replace(/^authorization:\s*/i, "").trim();
+  if (/^(Bearer|Basic)\s+/i.test(value)) {
+    return value;
+  }
+  return `Bearer ${value}`;
+}
+
 async function postWebhook(items) {
   const url = process.env.WEBHOOK_URL;
   const key = process.env.WEBHOOK_KEY;
@@ -197,11 +211,13 @@ async function postWebhook(items) {
     return false;
   }
 
+  const authorization = normalizeAuthorization(key);
+
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: key,
+      Authorization: authorization,
       "User-Agent": "dannebrud-rss/1.0",
     },
     body: JSON.stringify({ items }),
