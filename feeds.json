@@ -42,5 +42,17 @@
   {
     "name": "CERT.dk",
     "url": "https://www.cert.dk/news/rss"
+  },
+  {
+    "name": "Politiken",
+    "url": "https://politiken.dk/rss/senestenyt.rss"
+  },
+  {
+    "name": "Børsen",
+    "url": "https://borsen.dk/rss"
+  },
+  {
+    "name": "Altinget Digital",
+    "url": "https://www.altinget.dk/digital/rss"
   }
 ]
