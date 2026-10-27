@@ -2,8 +2,9 @@ name: Poll RSS → webhook
 
 on:
   schedule:
-    # Every 15 minutes (UTC). A waking-hours gate skips most overnight runs.
-    - cron: "*/15 * * * *"
+    # Every ~15 minutes on off-peak slots (UTC) to reduce GitHub schedule drops
+    # on crowded */15 minutes. A waking-hours gate skips most overnight runs.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:
