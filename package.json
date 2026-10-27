@@ -5,7 +5,7 @@
   "description": "Tiny free RSS→webhook poller for Danish cyber-incident news (companion to private dannebrud)",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "poll": "node poll.mjs",
