@@ -54,5 +54,9 @@
   {
     "name": "Altinget Digital",
     "url": "https://www.altinget.dk/digital/rss"
+  },
+  {
+    "name": "Y.dk",
+    "url": "https://y.dk/rss"
   }
 ]
