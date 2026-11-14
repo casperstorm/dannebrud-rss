@@ -50,10 +50,15 @@ One JSON POST per run when there is at least one new match:
 
 If there are zero new items, the job exits `0` and does not POST.
 
+## Keyword filter
+
+Every feed is keyword-filtered: only items whose title/summary match are ever posted (the `KEYWORDS` list in `poll.mjs`). Broad general-news feeds (the regional DR/TV2 feeds, the Watch Medier sites, Nordjyske) set `"extended": true` in `feeds.json`, which also matches `EXTENDED_KEYWORDS` (hackerangreb, it-angreb, løsesum, overbelastningsangreb, breach, and so on). Existing feeds without the flag behave exactly as before.
+
 ## Deduping
 
 - `seen.json` lists link URLs already handled.
 - On an empty `seen.json` (first run), matching items older than ~48 hours are recorded as seen but **not** POSTed (avoids flooding).
+- A feed that `seen.json` has not recorded yet (its name is missing from the `feeds` list in `seen.json`) is **seeded** on its first successful poll: its current matching items are marked seen but not POSTed, so adding a feed never floods the webhook with backlog. An older `seen.json` without the `feeds` field treats every feed without `"extended": true` as already known.
 - The workflow commits updates to `seen.json` with `[skip ci]` and also uploads it as an Actions artifact.
 
 ## Local dry run
