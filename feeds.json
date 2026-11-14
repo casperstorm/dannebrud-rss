@@ -62,5 +62,155 @@
   {
     "name": "Datatilsynet",
     "url": "https://www.datatilsynet.dk/gbapi/rss/feed?id=N2Y3M2VkM2EtODEzYi00MDZlLWJkNzEtY2I4ZWQ0YmJmYTVmfDIwY2VlNWY4LTQ5MGMtNDdiYy05NjIxLTZmNjAwZGQwNzhhOA%3D%3D"
+  },
+  {
+    "name": "ITWatch",
+    "url": "https://itwatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "MedWatch",
+    "url": "https://medwatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "EnergiWatch",
+    "url": "https://energiwatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "ShippingWatch",
+    "url": "https://shippingwatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "FinansWatch",
+    "url": "https://finanswatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "AdvokatWatch",
+    "url": "https://advokatwatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "EjendomsWatch",
+    "url": "https://ejendomswatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "AgriWatch",
+    "url": "https://agriwatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "MediaWatch",
+    "url": "https://mediawatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "DetailWatch",
+    "url": "https://detailwatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "MobilityWatch",
+    "url": "https://mobilitywatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "KapWatch",
+    "url": "https://kapwatch.dk/rss/seneste.rss",
+    "extended": true
+  },
+  {
+    "name": "DR København",
+    "url": "https://www.dr.dk/nyheder/service/feeds/regionale/kbh",
+    "extended": true
+  },
+  {
+    "name": "DR Sjælland",
+    "url": "https://www.dr.dk/nyheder/service/feeds/regionale/sjaelland",
+    "extended": true
+  },
+  {
+    "name": "DR Bornholm",
+    "url": "https://www.dr.dk/nyheder/service/feeds/regionale/bornholm",
+    "extended": true
+  },
+  {
+    "name": "DR Fyn",
+    "url": "https://www.dr.dk/nyheder/service/feeds/regionale/fyn",
+    "extended": true
+  },
+  {
+    "name": "DR Trekanten",
+    "url": "https://www.dr.dk/nyheder/service/feeds/regionale/trekanten",
+    "extended": true
+  },
+  {
+    "name": "DR Syd",
+    "url": "https://www.dr.dk/nyheder/service/feeds/regionale/syd",
+    "extended": true
+  },
+  {
+    "name": "DR Østjylland",
+    "url": "https://www.dr.dk/nyheder/service/feeds/regionale/oestjylland",
+    "extended": true
+  },
+  {
+    "name": "DR Nord",
+    "url": "https://www.dr.dk/nyheder/service/feeds/regionale/nord",
+    "extended": true
+  },
+  {
+    "name": "DR Vest",
+    "url": "https://www.dr.dk/nyheder/service/feeds/regionale/vest",
+    "extended": true
+  },
+  {
+    "name": "TV2 Fyn",
+    "url": "https://www.tv2fyn.dk/rss",
+    "extended": true
+  },
+  {
+    "name": "TV2 Nord",
+    "url": "https://www.tv2nord.dk/rss",
+    "extended": true
+  },
+  {
+    "name": "TV2 East",
+    "url": "https://www.tv2east.dk/rss",
+    "extended": true
+  },
+  {
+    "name": "TV2 Kosmopol",
+    "url": "https://www.tv2kosmopol.dk/rss",
+    "extended": true
+  },
+  {
+    "name": "TV2 Bornholm",
+    "url": "https://www.tv2bornholm.dk/rss",
+    "extended": true
+  },
+  {
+    "name": "TV Midtvest",
+    "url": "https://www.tvmidtvest.dk/rss",
+    "extended": true
+  },
+  {
+    "name": "TV Syd",
+    "url": "https://www.tvsyd.dk/rss",
+    "extended": true
+  },
+  {
+    "name": "TV2 Østjylland",
+    "url": "https://www.tv2oj.dk/rss/",
+    "extended": true
+  },
+  {
+    "name": "Nordjyske",
+    "url": "https://nordjyske.dk/rss/nyheder",
+    "extended": true
   }
 ]

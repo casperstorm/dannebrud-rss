@@ -14,6 +14,15 @@
  *   SEEN_PATH    — path to seen.json (default: ./seen.json)
  *   FEEDS_PATH   — path to feeds.json (default: ./feeds.json)
  *   MAX_AGE_HOURS — skip items older than this when first seen (default: 48)
+ *
+ * Per-feed options in feeds.json:
+ *   "extended": true — also match EXTENDED_KEYWORDS (extra Danish cyber terms) on top
+ *                      of KEYWORDS. Used for broad general-news feeds. Every feed is
+ *                      keyword-filtered; only matching items are ever posted.
+ *
+ * A feed that seen.json has not recorded yet ("new feed") is seeded: its current
+ * matching items are marked seen but NOT posted, so adding a feed never floods
+ * the webhook with backlog. Only items that appear in later polls are posted.
  */
 
 import http from "node:http";
@@ -88,6 +97,34 @@ const KEYWORDS = [
   "afpresning",
 ];
 
+/**
+ * Extra cyber terms, used only by feeds with "extended": true (the broad
+ * general-news feeds). The base KEYWORDS above stay untouched so existing
+ * feeds behave exactly as before. Bare "cyber" and "leak" are left out on
+ * purpose: they match Cyber Monday and sports/politics leaks, and every
+ * posted item wakes a paid agent run.
+ */
+const EXTENDED_KEYWORDS = [
+  "hackerangreb",
+  "hackerangrebet",
+  "hackerangrebene",
+  "dataangreb",
+  "dataangrebet",
+  "it-angreb",
+  "it-angrebet",
+  "it-sikkerhedsbrud",
+  "it-sikkerhedshændelse",
+  "it-kriminalitet",
+  "overbelastningsangreb",
+  "overbelastningsangrebet",
+  "løsesum",
+  "løsesummen",
+  "løsesumkrav",
+  "læk af data",
+  "breach",
+  "breached",
+];
+
 const parser = new Parser({
   timeout: 20000,
   headers: {
@@ -108,11 +145,13 @@ function keywordPattern(keyword) {
 }
 
 const KEYWORD_RES = KEYWORDS.map(keywordPattern);
+const EXTENDED_KEYWORD_RES = EXTENDED_KEYWORDS.map(keywordPattern);
 
-function matchesKeywords(text) {
+function matchesKeywords(text, extended = false) {
   if (!text) return false;
   const normalized = text.normalize("NFC");
-  return KEYWORD_RES.some((re) => re.test(normalized));
+  if (KEYWORD_RES.some((re) => re.test(normalized))) return true;
+  return extended && EXTENDED_KEYWORD_RES.some((re) => re.test(normalized));
 }
 
 function stripHtml(html) {
@@ -151,10 +190,19 @@ async function loadSeen(path) {
   return new Set(links.filter((x) => typeof x === "string" && x.length > 0));
 }
 
-async function saveSeen(path, seen) {
+/** Feed names that seen.json has already polled successfully, or null for an older file without the field. */
+async function loadKnownFeeds(path) {
+  const data = await loadJson(path, { links: [] });
+  return Array.isArray(data.feeds)
+    ? new Set(data.feeds.filter((x) => typeof x === "string" && x.length > 0))
+    : null;
+}
+
+async function saveSeen(path, seen, knownFeeds) {
   const links = [...seen].slice(-MAX_SEEN);
   const payload = {
     updatedAt: new Date().toISOString(),
+    feeds: [...knownFeeds].sort(),
     links,
   };
   await writeFile(path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
@@ -205,7 +253,7 @@ function toMatch(feed, item) {
   const title = stripHtml(item.title || "");
   const summary = summarize(item);
   const haystack = `${title}\n${summary}`;
-  if (!matchesKeywords(haystack)) return null;
+  if (!matchesKeywords(haystack, feed.extended === true)) return null;
 
   const date = parseDate(item);
   return {
@@ -376,6 +424,21 @@ async function main() {
 
   const seen = await loadSeen(SEEN_PATH);
   const firstRun = seen.size === 0;
+  // An older seen.json has no feed list: then every feed without "extended" counts as
+  // already known (the feeds that existed before this field), so only the extended
+  // feeds are seeded on the first run after upgrading.
+  const knownFeeds =
+    (await loadKnownFeeds(SEEN_PATH)) ??
+    new Set(feeds.filter((f) => f.extended !== true).map((f) => f.name));
+  const newFeedNames = new Set(
+    feeds.filter((f) => !knownFeeds.has(f.name)).map((f) => f.name),
+  );
+  if (newFeedNames.size > 0) {
+    console.log(
+      `New feed(s) to seed (matches marked seen, not posted): ${[...newFeedNames].join(", ")}`,
+    );
+  }
+  let seeded = 0;
   const cutoff = Date.now() - MAX_AGE_MS;
 
   if (firstRun) {
@@ -391,7 +454,9 @@ async function main() {
   let scanned = 0;
   let keywordHits = 0;
 
-  for (const { feed, items } of results) {
+  for (const { feed, items, error } of results) {
+    // A feed that failed to load stays "new" and is seeded on a later run that succeeds.
+    if (!error) knownFeeds.add(feed.name);
     for (const item of items) {
       scanned += 1;
       const match = toMatch(feed, item);
@@ -399,6 +464,13 @@ async function main() {
       keywordHits += 1;
 
       if (seen.has(match.link)) continue;
+
+      if (newFeedNames.has(feed.name)) {
+        // Backlog of a feed added this run: remember it, never post it.
+        seen.add(match.link);
+        seeded += 1;
+        continue;
+      }
 
       if (firstRun && match._dateMs != null && match._dateMs < cutoff) {
         // Mark old matches as seen so we do not flood on first run, but skip POST.
@@ -419,7 +491,7 @@ async function main() {
   }
 
   console.log(
-    `Scanned ${scanned} item(s); ${keywordHits} keyword hit(s); ${newMatches.length} new match(es)`,
+    `Scanned ${scanned} item(s); ${keywordHits} keyword hit(s); ${newMatches.length} new match(es); ${seeded} seeded from new feed(s)`,
   );
 
   if (newMatches.length > 0) {
@@ -438,7 +510,7 @@ async function main() {
 
   if (!DRY_RUN) {
     // Persist all seen links (including first-run skips) so later runs only send truly new ones.
-    await saveSeen(SEEN_PATH, seen);
+    await saveSeen(SEEN_PATH, seen, knownFeeds);
   }
 }
 
