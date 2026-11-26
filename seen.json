@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-26T06:15:33.947Z",
+  "updatedAt": "2026-11-26T06:30:57.564Z",
   "feeds": [
     "AdvokatWatch",
     "AgriWatch",
@@ -420,6 +420,8 @@
     "https://www.computerworld.dk/art/297798/teenage-hacker-stjal-og-laekkede-oplysninger-om-gta-6-nu-er-han-doemt?utm_source=RSS&utm_medium=RSS&utm_campaign=RSS",
     "https://itwatch.dk/ITNyt/Brancher/Sikkerhed/article19867524.ece?utm_source=Feed&utm_medium=latest",
     "https://www.computerworld.dk/art/297812/it-sikkerhedsekspert-jacob-herbst-to-typer-hackere-kan-staa-bag-stort-cyber-angreb-mod-systematic?utm_source=RSS&utm_medium=RSS&utm_campaign=RSS",
-    "https://agriwatch.dk/Nyheder/Landbrug/article19867982.ece?utm_source=Feed&utm_medium=latest"
+    "https://agriwatch.dk/Nyheder/Landbrug/article19867982.ece?utm_source=Feed&utm_medium=latest",
+    "https://www.berlingske.dk/indland/nyt-sikkerhedsbrud-i-cpr-registretuvedkommende-har-skaffet-adgang-til-oplysninger-om-11000-personer?referrer=RSS",
+    "https://www.berlingske.dk/politik/endnu-et-cpr-laek-med-11000-personer-er-blevet-opdaget?referrer=RSS"
   ]
 }
